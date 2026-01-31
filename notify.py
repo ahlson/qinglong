@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 # _*_ coding:utf-8 _*_
-# -------------------------------
-# cron "0 0 1 1 *" script-path=xxx.py,tag=匹配cron用
-# const $ = new Env('通知模块')
-
 import base64
 import hashlib
 import hmac
@@ -37,7 +33,7 @@ def print(text, *args, **kw):
 # 通知服务
 # fmt: off
 push_config = {
-    'HITOKOTO': True,                  # 启用一言（随机句子）
+    'HITOKOTO': False,                  # 启用一言（随机句子）
 
     'BARK_PUSH': '',                    # bark IP 或设备码，例：https://api.day.app/DxHcxxxxxRxxxxxxcm/
     'BARK_ARCHIVE': '',                 # bark 推送是否存档
@@ -47,7 +43,7 @@ push_config = {
     'BARK_LEVEL': '',                   # bark 推送时效性
     'BARK_URL': '',                     # bark 推送跳转URL
 
-    'CONSOLE': False,                    # 控制台输出
+    'CONSOLE': True,                    # 控制台输出
 
     'DD_BOT_SECRET': '',                # 钉钉机器人的 DD_BOT_SECRET
     'DD_BOT_TOKEN': '',                 # 钉钉机器人的 DD_BOT_TOKEN
@@ -76,8 +72,8 @@ push_config = {
     'CHAT_URL': '',                     # synology chat url
     'CHAT_TOKEN': '',                   # synology chat token
 
-    'PUSH_PLUS_TOKEN': 'AT_jde8ji04jgInFRaC0HLe3WaAAKU7aT0V',              # push+ 微信推送的用户令牌
-    'PUSH_PLUS_USER': '33988',               # push+ 微信推送的群组编码
+    'PUSH_PLUS_TOKEN': '',              # push+ 微信推送的用户令牌
+    'PUSH_PLUS_USER': '',               # push+ 微信推送的群组编码
 
     'WE_PLUS_BOT_TOKEN': '',            # 微加机器人的用户令牌
     'WE_PLUS_BOT_RECEIVER': '',         # 微加机器人的消息接收者
@@ -92,7 +88,7 @@ push_config = {
 
     'QYWX_KEY': '',                     # 企业微信机器人
 
-    'TG_BOT_TOKEN': '',                 # tg 机器人的 TG_BOT_TOKEN，
+    'TG_BOT_TOKEN': '',                 # tg 机器人的 TG_BOT_TOKEN，例：1407203283:AAG9rt-6RDaaX0HBLZQq0laNOh898iFYaRQ
     'TG_USER_ID': '',                   # tg 机器人的 TG_USER_ID，例：1434078534
     'TG_API_HOST': '',                  # tg 代理 api
     'TG_PROXY_AUTH': '',                # tg 代理认证参数
@@ -365,7 +361,7 @@ def pushplus_bot(title: str, content: str) -> None:
     if not push_config.get("PUSH_PLUS_TOKEN"):
         print("PUSHPLUS 服务的 PUSH_PLUS_TOKEN 未设置!!\n取消推送")
         return
-    print("PUSHPLUS 服务启动")
+    # print("PUSHPLUS 服务启动")
 
     url = "http://www.pushplus.plus/send"
     data = {
@@ -379,7 +375,8 @@ def pushplus_bot(title: str, content: str) -> None:
     response = requests.post(url=url, data=body, headers=headers).json()
 
     if response["code"] == 200:
-        print("PUSHPLUS 推送成功！")
+        # print("PUSHPLUS 推送成功！")
+        return
 
     else:
         url_old = "http://pushplus.hxtrip.com/send"
@@ -387,7 +384,8 @@ def pushplus_bot(title: str, content: str) -> None:
         response = requests.post(url=url_old, data=body, headers=headers).json()
 
         if response["code"] == 200:
-            print("PUSHPLUS(hxtrip) 推送成功！")
+            # print("PUSHPLUS(hxtrip) 推送成功！")
+            return
 
         else:
             print("PUSHPLUS 推送失败！")
@@ -965,8 +963,8 @@ def send(title: str, content: str, ignore_default_config: bool = False, **kwargs
             return
 
     hitokoto = push_config.get("HITOKOTO")
-    content += "\n\n" + one() if hitokoto != "false" else ""
-
+    # content += "\n\n" + one() if hitokoto != "false" else ""
+    content +=  ""
     notify_function = add_notify_function()
     ts = [
         threading.Thread(target=mode, args=(title, content), name=mode.__name__)
