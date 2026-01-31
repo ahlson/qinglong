@@ -1,89 +1,67 @@
-#!/usr/bin/python3
-# -- coding: utf-8 --
-# -------------------------------
-# cron "0 */1 * * *" script-path=xxx.py,tag=匹配cron用
-# const $ = new Env('监控系统状态')
-
 import psutil
 import os
-import requests
-import GPUtil  # 确保安装此库
-import time  # 引入 time 模块
+import datetime
+from notify import send
 
-# pushplus推送环境变量 ：PUSHPLUS_TOKEN
-
-# 获取系统信息
-def get_system_info():
-    memory = psutil.virtual_memory()
-    total_memory = memory.total / (1024 ** 3)
-    used_memory = memory.used / (1024 ** 3)
-    memory_info = f"总内存: {total_memory:.2f} GB\n已使用: {used_memory:.2f} GB\n"
-
-    disk = psutil.disk_usage('/')
-    total_disk = disk.total / (1024 ** 3)
-    used_disk = disk.used / (1024 ** 3)
-    disk_info = f"总磁盘: {total_disk:.2f} GB\n已使用: {used_disk:.2f} GB\n"
-
-    cpu_usage = psutil.cpu_percent(interval=1)
-    cpu_info = f"CPU 使用率: {cpu_usage}%\n"
-
-    return memory_info + disk_info + cpu_info
-
-# 获取系统开机时长
-def get_uptime():
-    boot_time = psutil.boot_time()
-    uptime_seconds = time.time() - boot_time
-    uptime_days = uptime_seconds // (24 * 3600)
-    uptime_hours = (uptime_seconds % (24 * 3600)) // 3600
-    uptime_minutes = (uptime_seconds % 3600) // 60
-    return f"{int(uptime_days)} 天 {int(uptime_hours)} 小时 {int(uptime_minutes)} 分钟"
-
-# 获取CPU温度
-def get_cpu_temperature():
-    cpu_temp = psutil.sensors_temperatures().get('coretemp', [])
-    if cpu_temp:
-        return f"{cpu_temp[0].current} °C"  # 添加单位 °C
-    return '无法获取'
-
-# 获取主板温度
-def get_motherboard_temperature():
-    return "27.8°C"  # 示例温度
-
-# 获取GPU温度
-def get_gpu_temperature():
+def get_docker_memory():
+    """获取 Docker 容器真实内存限制（cgroup v2 优先）"""
     try:
-        gpus = GPUtil.getGPUs()
-        if gpus:
-            return f"GPU 温度: {gpus[0].temperature} °C"
-        return "无法获取 GPU 温度"
-    except Exception as e:
-        return f"获取 GPU 温度时出错: {str(e)}"
+        with open("/sys/fs/cgroup/memory.max") as f:
+            mem_max = f.read().strip()
+        with open("/sys/fs/cgroup/memory.current") as f:
+            mem_cur = int(f.read().strip())
 
-# PushPlus 推送消息
-def send_pushplus_message(token, title, content):
-    url = "http://www.pushplus.plus/send"
-    data = {
-        "token": token,
-        "title": title,
-        "content": content,
-        "template": "txt"
-    }
-    response = requests.post(url, json=data)
-    return response.json()
+        if mem_max.isdigit():
+            mem_max = int(mem_max)
+            used = mem_cur / (1024 ** 3)
+            total = mem_max / (1024 ** 3)
+            percent = mem_cur / mem_max * 100
+            return f"【容器内存】{used:.2f} / {total:.2f} GB ({percent:.1f}%)\n"
+    except:
+        pass
+    return ""
 
-if __name__ == "__main__":
-    # 从青龙面板环境变量中获取 PushPlus Token
-    pushplus_token = os.getenv("PUSHPLUS_TOKEN")
-    
-    if not pushplus_token:
-        print("未找到 PushPlus Token")
-    else:
-        # 获取系统信息并推送
-        system_info = get_system_info()
-        uptime = get_uptime()
-        cpu_temperature = get_cpu_temperature()
-        motherboard_temperature = get_motherboard_temperature()
-        gpu_temperature = get_gpu_temperature()
-        message_content = f"{system_info}系统开机时长: {uptime}\nCPU 温度: {cpu_temperature}\n主板温度: {motherboard_temperature}\n{gpu_temperature}"
-        result = send_pushplus_message(pushplus_token, "宿主机状态监控", message_content)
-        print("推送结果:", result)
+def get_system_info():
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # CPU
+    cpu_percent = psutil.cpu_percent(interval=1)
+    load1, load5, load15 = os.getloadavg()
+    cpu_info = (
+        f"【CPU】{cpu_percent}%\n"
+        f"【负载】{load1:.2f} / {load5:.2f} / {load15:.2f}\n"
+    )
+
+    # 内存（宿主视角）
+    mem = psutil.virtual_memory()
+    mem_info = f"【内存】{mem.used/1e9:.2f} / {mem.total/1e9:.2f} GB ({mem.percent}%)\n"
+
+    # Docker 容器内存
+    docker_mem = get_docker_memory()
+
+    # 磁盘
+    disk = psutil.disk_usage('/')
+    disk_info = f"【磁盘】{disk.used/1e9:.2f} / {disk.total/1e9:.2f} GB ({disk.percent}%)\n"
+
+    # 网络
+    net = psutil.net_io_counters()
+    net_info = (
+        f"【网络】↑ {net.bytes_sent/1e6:.1f} MB "
+        f"↓ {net.bytes_recv/1e6:.1f} MB\n"
+    )
+
+    # 运行时间
+    boot = datetime.datetime.fromtimestamp(psutil.boot_time())
+    uptime = datetime.datetime.now() - boot
+    uptime_info = f"【运行】{uptime.days}天 {uptime.seconds//3600}小时\n"
+
+    return (
+        f"📊 服务器状态\n"
+        f"时间: {now}\n"
+        f"{'-'*24}\n"
+        f"{cpu_info}{mem_info}{docker_mem}{disk_info}{net_info}{uptime_info}"
+    )
+
+# 执行
+msg = get_system_info()
+send("服务器状态监控", msg)
