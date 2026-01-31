@@ -2,7 +2,7 @@
 自用青龙脚本
 拉库
 ```
-ql repo https://mirror.ghproxy.com/https://github.com/OfSong/qinglong.git
+ql repo https://mirror.ghproxy.com/https://github.com/ahlson/qinglong.git
 ```
 
 # 要在系统环境中使用 `cron` 工具定时执行脚本，您可以按照以下步骤进行操作：
